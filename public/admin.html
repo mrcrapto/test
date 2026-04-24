@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speech Karaoke — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Space+Mono:wght@400;700&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07071a;--surface:#0e0e2c;--surface2:#161638;--surface3:#1d1d44;
+  --pink:#ff2d78;--cyan:#00e5ff;--yellow:#ffd60a;--green:#39ff14;--purple:#b44aff;
+  --text:#f0f0f8;--dim:#6666aa;--dim2:#4444aa;
+  --glow-pink:0 0 16px rgba(255,45,120,.5);--glow-cyan:0 0 16px rgba(0,229,255,.5);
+  --glow-green:0 0 16px rgba(57,255,20,.5);--glow-yellow:0 0 14px rgba(255,214,10,.5);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 15% 20%,rgba(180,74,255,.05) 0,transparent 40%),
+  radial-gradient(circle at 85% 80%,rgba(0,229,255,.04) 0,transparent 40%)}
+
+/* ── LAYOUT ── */
+.layout{display:grid;grid-template-columns:220px 1fr;grid-template-rows:56px 1fr;height:100vh;overflow:hidden}
+
+/* ── TOPBAR ── */
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;background:rgba(10,10,30,.9);border-bottom:1px solid rgba(255,255,255,.06);
+  backdrop-filter:blur(12px);z-index:50}
+.tb-logo{font-family:'Bungee',sans-serif;font-size:1rem;color:var(--pink);letter-spacing:2px;
+  text-shadow:var(--glow-pink)}
+.tb-right{display:flex;align-items:center;gap:14px}
+.tb-user{font-family:'Space Mono',monospace;font-size:.75rem;color:var(--dim)}
+.tb-user span{color:var(--cyan)}
+
+/* ── SIDEBAR ── */
+.sidebar{background:rgba(10,10,30,.7);border-right:1px solid rgba(255,255,255,.05);
+  padding:16px 0;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 18px;cursor:pointer;
+  font-family:'Bungee',sans-serif;font-size:.72rem;letter-spacing:1.5px;color:var(--dim);
+  border-left:2px solid transparent;transition:all .2s}
+.nav-item:hover,.nav-item.active{color:var(--cyan);border-left-color:var(--cyan);
+  background:rgba(0,229,255,.05)}
+.nav-section{padding:16px 18px 6px;font-family:'Bungee',sans-serif;font-size:.6rem;
+  letter-spacing:2px;color:var(--dim2)}
+.nav-badge{font-size:.6rem;background:rgba(255,45,120,.15);color:var(--pink);
+  border:1px solid rgba(255,45,120,.3);border-radius:10px;padding:2px 7px}
+
+/* ── MAIN CONTENT ── */
+.main{overflow-y:auto;padding:24px}
+.page{display:none}
+.page.active{display:block}
+
+/* ── CARDS ── */
+.card{background:rgba(14,14,44,.75);border:1px solid rgba(255,255,255,.07);
+  border-radius:14px;padding:20px;backdrop-filter:blur(12px)}
+.card-title{font-family:'Bungee',sans-serif;font-size:.8rem;letter-spacing:2px;color:var(--dim);margin-bottom:14px}
+
+/* ── STAT CARDS ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:rgba(14,14,44,.75);border:1px solid rgba(255,255,255,.07);border-radius:12px;
+  padding:16px;text-align:center}
+.stat-val{font-family:'Bungee',sans-serif;font-size:2rem;margin-bottom:4px}
+.stat-lbl{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--dim);letter-spacing:1px}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid rgba(255,255,255,.06)}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+thead th{background:rgba(22,22,56,.9);padding:12px 14px;text-align:left;
+  font-family:'Bungee',sans-serif;font-size:.65rem;letter-spacing:1.5px;color:var(--dim);
+  border-bottom:1px solid rgba(255,255,255,.06)}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s;cursor:pointer}
+tbody tr:hover{background:rgba(0,229,255,.04)}
+tbody td{padding:11px 14px;vertical-align:middle;font-family:'Space Mono',monospace;font-size:.75rem}
+.td-name{font-weight:700;color:var(--text)}
+.td-dim{color:var(--dim)}
+
+/* ── BADGES ── */
+.badge{font-family:'Bungee',sans-serif;font-size:.6rem;letter-spacing:1px;padding:3px 9px;border-radius:3px;display:inline-block}
+.badge-green{background:rgba(57,255,20,.1);color:var(--green);border:1px solid rgba(57,255,20,.35)}
+.badge-yellow{background:rgba(255,214,10,.1);color:var(--yellow);border:1px solid rgba(255,214,10,.35)}
+.badge-pink{background:rgba(255,45,120,.1);color:var(--pink);border:1px solid rgba(255,45,120,.35)}
+.badge-cyan{background:rgba(0,229,255,.1);color:var(--cyan);border:1px solid rgba(0,229,255,.35)}
+
+/* ── BUTTONS ── */
+.btn{font-family:'Bungee',sans-serif;font-size:.75rem;letter-spacing:1.5px;padding:9px 18px;
+  border:none;border-radius:5px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--pink);color:#fff;box-shadow:var(--glow-pink)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 0 40px rgba(255,45,120,.7)}
+.btn-ghost{background:transparent;color:var(--cyan);border:1.5px solid var(--cyan)}
+.btn-ghost:hover{background:rgba(0,229,255,.07)}
+.btn-sm{padding:6px 12px;font-size:.65rem}
+.btn-danger{background:transparent;color:var(--pink);border:1.5px solid rgba(255,45,120,.4)}
+.btn-danger:hover{background:rgba(255,45,120,.1)}
+
+/* ── PROGRESS BAR ── */
+.prog-track{height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.pg-green{background:linear-gradient(90deg,var(--green),var(--cyan))}
+.pg-yellow{background:linear-gradient(90deg,var(--yellow),var(--green))}
+.pg-pink{background:linear-gradient(90deg,var(--pink),var(--yellow))}
+
+/* ── STUDENT DETAIL PANEL ── */
+.detail-overlay{position:fixed;inset:0;z-index:200;background:rgba(5,5,20,.85);
+  backdrop-filter:blur(12px);display:none;overflow-y:auto;padding:24px}
+.detail-overlay.open{display:flex;justify-content:center}
+.detail-panel{background:rgba(14,14,44,.95);border:1px solid rgba(255,255,255,.09);
+  border-radius:18px;width:100%;max-width:800px;padding:28px;
+  display:flex;flex-direction:column;gap:20px;align-self:flex-start}
+
+/* ── AUTH OVERLAY ── */
+.auth-overlay{position:fixed;inset:0;z-index:300;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px}
+.auth-card{background:rgba(14,14,44,.85);border:1px solid rgba(255,255,255,.07);
+  border-radius:18px;padding:32px;width:100%;max-width:380px}
+.field{display:flex;flex-direction:column;gap:6px;width:100%}
+.field label{font-family:'Bungee',sans-serif;font-size:.68rem;letter-spacing:2px;color:var(--dim)}
+.field input{background:var(--surface2);border:1.5px solid rgba(255,255,255,.1);border-radius:8px;
+  padding:12px 14px;color:var(--text);font-family:'Space Mono',monospace;font-size:.85rem;outline:none}
+.field input:focus{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(0,229,255,.1)}
+.err-msg{font-size:.75rem;color:var(--pink);font-family:'Space Mono',monospace;text-align:center;min-height:16px}
+
+/* ── LEVEL BARS ── */
+.lv-bars{display:flex;flex-direction:column;gap:8px}
+.lv-row{display:flex;align-items:center;gap:10px}
+.lv-name{font-family:'Bungee',sans-serif;font-size:.65rem;color:var(--dim);width:80px;flex-shrink:0}
+.lv-prog{flex:1}
+.lv-nums{font-family:'Space Mono',monospace;font-size:.68rem;color:var(--dim);width:80px;text-align:right}
+
+/* ── ACTIVITY GRID ── */
+.activity-grid{display:grid;grid-template-columns:repeat(20,1fr);gap:3px}
+.ag-cell{aspect-ratio:1;border-radius:2px;background:rgba(255,255,255,.05);transition:all .2s;cursor:default}
+.ag-cell[title]:hover::after{content:attr(title);position:absolute;background:var(--surface2);
+  border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:4px 8px;
+  font-size:.65rem;white-space:nowrap;z-index:10;pointer-events:none}
+.ag-cell.ag-done{background:var(--green);box-shadow:0 0 4px rgba(57,255,20,.4)}
+.ag-cell.ag-partial{background:var(--yellow);box-shadow:0 0 4px rgba(255,214,10,.4)}
+.ag-cell.ag-none{background:rgba(255,45,120,.2)}
+.ag-cell.ag-future{background:rgba(255,255,255,.04)}
+
+/* ── MISC ── */
+.spinner{width:24px;height:24px;border-radius:50%;border:2.5px solid rgba(0,229,255,.15);
+  border-top-color:var(--cyan);animation:spin .7s linear infinite;margin:auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.neon-title{font-family:'Bungee',sans-serif;color:var(--pink);text-shadow:var(--glow-pink)}
+.empty-state{text-align:center;padding:40px;color:var(--dim);font-family:'Space Mono',monospace;font-size:.82rem}
+.section-title{font-family:'Bungee',sans-serif;font-size:.75rem;letter-spacing:2px;color:var(--dim);margin-bottom:12px}
+.alert{padding:10px 16px;border-radius:8px;font-size:.8rem;font-family:'Space Mono',monospace;border:1.5px solid}
+.alert-err{background:rgba(255,45,120,.08);border-color:rgba(255,45,120,.4);color:var(--pink)}
+hr.div{border:none;border-top:1px solid rgba(255,255,255,.07);width:100%}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════ AUTH OVERLAY ══ -->
+<div class="auth-overlay" id="auth-overlay">
+  <div style="text-align:center">
+    <div class="neon-title" style="font-size:1.8rem;letter-spacing:3px">🎤 SPEECH KARAOKE</div>
+    <div style="font-family:'Bungee',sans-serif;font-size:.7rem;letter-spacing:4px;color:var(--cyan);margin-top:6px">ADMIN PANEL</div>
+  </div>
+  <div class="auth-card">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div id="auth-err" class="err-msg"></div>
+      <div class="field">
+        <label>USERNAME</label>
+        <input type="text" id="a-username" placeholder="admin" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>PASSWORD</label>
+        <input type="password" id="a-password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="doAdminLogin()">🔑 SIGN IN</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ STUDENT DETAIL ══ -->
+<div class="detail-overlay" id="detail-overlay">
+  <div class="detail-panel">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+      <div>
+        <div style="font-family:'Bungee',sans-serif;font-size:1.2rem;color:var(--cyan)" id="d-username">—</div>
+        <div style="font-family:'Space Mono',monospace;font-size:.72rem;color:var(--dim);margin-top:3px" id="d-email">—</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeDetail()">✕ CLOSE</button>
+    </div>
+
+    <div class="stat-grid" id="d-stats-grid"></div>
+
+    <!-- Activity grid -->
+    <div>
+      <div class="section-title">20-DAY PROGRESS</div>
+      <div class="activity-grid" id="d-activity"></div>
+      <div style="display:flex;gap:14px;margin-top:8px;font-family:'Space Mono',monospace;font-size:.65rem;color:var(--dim)">
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--green);border-radius:2px;margin-right:4px"></span>Complete</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--yellow);border-radius:2px;margin-right:4px"></span>Partial</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:rgba(255,45,120,.3);border-radius:2px;margin-right:4px"></span>Attempted</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:rgba(255,255,255,.05);border-radius:2px;margin-right:4px"></span>Future</span>
+      </div>
+    </div>
+
+    <hr class="div">
+
+    <!-- Per-level stats -->
+    <div>
+      <div class="section-title">PERFORMANCE BY LEVEL</div>
+      <div class="lv-bars" id="d-level-bars"></div>
+    </div>
+
+    <hr class="div">
+
+    <!-- Recent results -->
+    <div>
+      <div class="section-title">RECENT SESSIONS</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>DATE</th><th>DAY</th><th>LEVEL</th><th>SCORE</th><th>STATUS</th><th>ATTEMPTS</th></tr></thead>
+          <tbody id="d-results-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-danger btn-sm" onclick="deleteStudent()">🗑 DELETE STUDENT</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ MAIN LAYOUT ══ -->
+<div class="layout" id="main-layout" style="display:none">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="tb-logo">🎤 SPEECH KARAOKE — ADMIN</div>
+    <div class="tb-right">
+      <div class="tb-user">Logged in as <span id="tb-username">admin</span></div>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">LOGOUT</button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="nav-section">MENU</div>
+    <div class="nav-item active" onclick="navTo('students')">👥 STUDENTS</div>
+    <div class="nav-item" onclick="navTo('overview')">📊 OVERVIEW</div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- STUDENTS PAGE -->
+    <div class="page active" id="page-students">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-family:'Bungee',sans-serif;font-size:1.1rem;color:var(--text)">ALL STUDENTS</div>
+          <div style="font-family:'Space Mono',monospace;font-size:.72rem;color:var(--dim);margin-top:3px">Click a student to view details</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="search-input" type="text" placeholder="Search students…"
+            style="background:var(--surface2);border:1.5px solid rgba(255,255,255,.1);border-radius:8px;
+            padding:8px 14px;color:var(--text);font-family:'Space Mono',monospace;font-size:.78rem;outline:none;width:200px"
+            oninput="filterStudents(this.value)">
+          <button class="btn btn-primary btn-sm" onclick="loadStudents()">⟳ REFRESH</button>
+        </div>
+      </div>
+
+      <!-- Quick stats -->
+      <div class="stat-grid" id="ov-stats" style="margin-bottom:20px">
+        <div class="stat-card"><div class="stat-val" style="color:var(--cyan)" id="ov-total">—</div><div class="stat-lbl">TOTAL STUDENTS</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:var(--green)" id="ov-active">—</div><div class="stat-lbl">ACTIVE TODAY</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:var(--yellow)" id="ov-avg-score">—</div><div class="stat-lbl">AVG SCORE</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:var(--purple)" id="ov-avg-day">—</div><div class="stat-lbl">AVG DAY</div></div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>STUDENT</th>
+              <th>EMAIL</th>
+              <th>REGISTERED</th>
+              <th>CURRENT DAY</th>
+              <th>PRACTICED</th>
+              <th>PASSED</th>
+              <th>AVG SCORE</th>
+              <th>STATUS</th>
+            </tr>
+          </thead>
+          <tbody id="students-tbody">
+            <tr><td colspan="8"><div class="spinner" style="margin:20px auto"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- OVERVIEW PAGE -->
+    <div class="page" id="page-overview">
+      <div style="margin-bottom:18px">
+        <div style="font-family:'Bungee',sans-serif;font-size:1.1rem;color:var(--text)">OVERVIEW</div>
+        <div style="font-family:'Space Mono',monospace;font-size:.72rem;color:var(--dim);margin-top:3px">Platform-wide statistics</div>
+      </div>
+      <div class="stat-grid" id="overview-big-stats"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px">
+        <div class="card">
+          <div class="card-title">LEVEL COMPLETION RATES</div>
+          <div id="overview-levels"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">TOP STUDENTS BY SCORE</div>
+          <div id="overview-top"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let adminToken = null, adminUser = null;
+let allStudents = [];
+let currentDetailId = null;
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('sk_admin_token');
+  const savedUser = localStorage.getItem('sk_admin_user');
+  if (saved && savedUser) {
+    adminToken = saved; adminUser = JSON.parse(savedUser);
+    showMain();
+  }
+  document.getElementById('a-password').addEventListener('keydown', e => { if(e.key==='Enter') doAdminLogin(); });
+});
+
+async function doAdminLogin() {
+  document.getElementById('auth-err').textContent = '';
+  const username = document.getElementById('a-username').value.trim();
+  const password = document.getElementById('a-password').value;
+  if (!username || !password) { document.getElementById('auth-err').textContent = 'Username and password required'; return; }
+
+  const btn = document.querySelector('.auth-overlay .btn-primary');
+  btn.disabled = true; btn.textContent = 'SIGNING IN...';
+  try {
+    const res = await api('/api/auth/login', { username, password });
+    if (res.user.role !== 'admin') throw new Error('Not an admin account');
+    adminToken = res.token; adminUser = res.user;
+    localStorage.setItem('sk_admin_token', adminToken);
+    localStorage.setItem('sk_admin_user', JSON.stringify(adminUser));
+    showMain();
+  } catch(e) {
+    document.getElementById('auth-err').textContent = e.message;
+  } finally { btn.disabled = false; btn.textContent = '🔑 SIGN IN'; }
+}
+
+function showMain() {
+  document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('main-layout').style.display = 'grid';
+  document.getElementById('tb-username').textContent = adminUser?.username || 'admin';
+  loadStudents();
+}
+
+function doLogout() {
+  adminToken = null; adminUser = null;
+  localStorage.removeItem('sk_admin_token'); localStorage.removeItem('sk_admin_user');
+  document.getElementById('auth-overlay').style.display = 'flex';
+  document.getElementById('main-layout').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function navTo(page) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('page-'+page).classList.add('active');
+  if (page === 'overview') buildOverview();
+}
+
+// ═══════════════════════════════════════════════
+// STUDENTS LIST
+// ═══════════════════════════════════════════════
+async function loadStudents() {
+  document.getElementById('students-tbody').innerHTML = '<tr><td colspan="8"><div class="spinner" style="margin:20px auto"></div></td></tr>';
+  try {
+    allStudents = await apiGet('/api/admin/students');
+    renderStudentsTable(allStudents);
+    updateQuickStats(allStudents);
+  } catch(e) {
+    document.getElementById('students-tbody').innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--pink);padding:20px">${e.message}</td></tr>`;
+  }
+}
+
+function updateQuickStats(students) {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('ov-total').textContent = students.length;
+
+  // Active today = practiced at least 1 sentence today (we use dayNumber matching start_date roughly)
+  const active = students.filter(s => s.activeDays > 0 && s.dayNumber <= 20).length;
+  document.getElementById('ov-active').textContent = active;
+
+  const avgScore = students.length ? Math.round(students.reduce((a,s)=>a+s.avgScore,0)/students.length) : 0;
+  document.getElementById('ov-avg-score').textContent = avgScore + '%';
+
+  const avgDay = students.length ? Math.round(students.reduce((a,s)=>a+s.dayNumber,0)/students.length) : 0;
+  document.getElementById('ov-avg-day').textContent = avgDay;
+}
+
+function renderStudentsTable(students) {
+  const tbody = document.getElementById('students-tbody');
+  if (!students.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No students registered yet</div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = students.map(s => {
+    const pct = s.totalPracticed ? Math.round(s.totalPassed / s.totalPracticed * 100) : 0;
+    const dayPct = Math.round(s.dayNumber / 20 * 100);
+    const statusBadge = s.dayNumber >= 20
+      ? '<span class="badge badge-green">COMPLETED</span>'
+      : s.dayNumber > 10
+      ? '<span class="badge badge-yellow">IN PROGRESS</span>'
+      : s.dayNumber > 0
+      ? '<span class="badge badge-cyan">STARTED</span>'
+      : '<span class="badge badge-pink">NOT STARTED</span>';
+
+    return `
+      <tr onclick="openDetail(${s.id})">
+        <td class="td-name">${esc(s.username)}</td>
+        <td class="td-dim">${esc(s.email)}</td>
+        <td class="td-dim">${fmtDate(s.created_at)}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="prog-track" style="width:60px"><div class="prog-fill ${dayPct>=80?'pg-green':dayPct>=40?'pg-yellow':'pg-pink'}" style="width:${dayPct}%"></div></div>
+            <span style="color:var(--cyan);font-family:'Bungee',sans-serif;font-size:.7rem">${s.dayNumber}/20</span>
+          </div>
+        </td>
+        <td style="color:var(--text)">${s.totalPracticed}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="color:var(--green)">${s.totalPassed}</span>
+            <span class="td-dim">(${pct}%)</span>
+          </div>
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="prog-track" style="width:50px"><div class="prog-fill ${s.avgScore>=70?'pg-green':s.avgScore>=50?'pg-yellow':'pg-pink'}" style="width:${s.avgScore}%"></div></div>
+            <span style="${s.avgScore>=70?'color:var(--green)':s.avgScore>=50?'color:var(--yellow)':'color:var(--pink)'}">${s.avgScore}%</span>
+          </div>
+        </td>
+        <td>${statusBadge}</td>
+      </tr>`;
+  }).join('');
+}
+
+function filterStudents(query) {
+  const q = query.toLowerCase();
+  const filtered = allStudents.filter(s =>
+    s.username.toLowerCase().includes(q) || s.email.toLowerCase().includes(q)
+  );
+  renderStudentsTable(filtered);
+}
+
+// ═══════════════════════════════════════════════
+// STUDENT DETAIL
+// ═══════════════════════════════════════════════
+async function openDetail(id) {
+  currentDetailId = id;
+  const overlay = document.getElementById('detail-overlay');
+  overlay.classList.add('open');
+  document.getElementById('d-username').textContent = '...';
+  document.getElementById('d-email').textContent = '';
+  document.getElementById('d-stats-grid').innerHTML = '<div class="spinner" style="grid-column:1/-1;margin:20px auto"></div>';
+  document.getElementById('d-activity').innerHTML = '';
+  document.getElementById('d-level-bars').innerHTML = '';
+  document.getElementById('d-results-tbody').innerHTML = '';
+
+  try {
+    const data = await apiGet(`/api/admin/student/${id}`);
+    renderDetail(data);
+  } catch(e) {
+    document.getElementById('d-username').textContent = 'Error loading';
+    document.getElementById('d-email').textContent = e.message;
+  }
+}
+
+function closeDetail() {
+  document.getElementById('detail-overlay').classList.remove('open');
+  currentDetailId = null;
+}
+
+function renderDetail(data) {
+  document.getElementById('d-username').textContent = data.username;
+  document.getElementById('d-email').textContent = data.email;
+
+  // Stats grid
+  const passRate = data.overallStats.total ? Math.round(data.overallStats.passed / data.overallStats.total * 100) : 0;
+  document.getElementById('d-stats-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-val" style="color:var(--cyan)">${data.dayNumber}</div><div class="stat-lbl">CURRENT DAY</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--green)">${data.overallStats.passed}</div><div class="stat-lbl">SENTENCES PASSED</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--yellow)">${data.overallStats.avgScore}%</div><div class="stat-lbl">AVG SCORE</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--purple)">${passRate}%</div><div class="stat-lbl">PASS RATE</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--pink)">${data.dailySummary.length}</div><div class="stat-lbl">ACTIVE DAYS</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--text)">${fmtDate(data.created_at)}</div><div class="stat-lbl">JOINED</div></div>
+  `;
+
+  // Activity grid (20 days × 5 levels = per day summary)
+  const dayMap = {};
+  data.dailySummary.forEach(d => { dayMap[d.day_number] = { total: d.total, passed: d.passed }; });
+  let actHtml = '';
+  for (let d = 1; d <= 20; d++) {
+    const entry = dayMap[d];
+    let cls = 'ag-future', title = `Day ${d}: Not started`;
+    if (d > data.dayNumber) { cls = 'ag-future'; title = `Day ${d}: Future`; }
+    else if (entry) {
+      const complete = entry.passed >= 25;
+      cls = complete ? 'ag-done' : entry.passed > 0 ? 'ag-partial' : 'ag-none';
+      title = `Day ${d}: ${entry.passed} passed / ${entry.total} attempted`;
+    } else if (d <= data.dayNumber) {
+      cls = 'ag-none'; title = `Day ${d}: Not practiced`;
+    }
+    actHtml += `<div class="ag-cell ${cls}" title="${title}"></div>`;
+  }
+  document.getElementById('d-activity').innerHTML = actHtml;
+
+  // Level bars
+  const lvNames = ['BASICS','EVERYDAY','SENTENCES','ACADEMIC','ADVANCED'];
+  const lvColors = ['var(--cyan)','var(--green)','var(--yellow)','var(--purple)','var(--pink)'];
+  let lvHtml = '';
+  for (let lv = 1; lv <= 5; lv++) {
+    const ls = data.levelStats[lv] || {total:0,passed:0,avgScore:0};
+    const pct = ls.avgScore;
+    lvHtml += `
+      <div class="lv-row">
+        <div class="lv-name" style="color:${lvColors[lv-1]}">${lvNames[lv-1]}</div>
+        <div class="lv-prog">
+          <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${lvColors[lv-1]}"></div></div>
+        </div>
+        <div class="lv-nums">${ls.passed}/${ls.total} · ${pct}%</div>
+      </div>`;
+  }
+  document.getElementById('d-level-bars').innerHTML = lvHtml;
+
+  // Recent results table
+  const tbody = document.getElementById('d-results-tbody');
+  if (!data.results.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="td-dim" style="text-align:center;padding:16px">No sessions yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.results.slice(0, 30).map(r => `
+    <tr>
+      <td class="td-dim">${fmtDateTime(r.played_at)}</td>
+      <td style="color:var(--cyan);font-family:'Bungee',sans-serif;font-size:.7rem">DAY ${r.day_number}</td>
+      <td><span class="badge badge-cyan">LVL ${r.level}</span></td>
+      <td style="${r.score>=.8?'color:var(--green)':r.score>=.5?'color:var(--yellow)':'color:var(--pink)'}">${Math.round(r.score*100)}%</td>
+      <td>${r.passed ? '<span class="badge badge-green">PASS</span>' : '<span class="badge badge-pink">FAIL</span>'}</td>
+      <td class="td-dim">${r.attempts}x</td>
+    </tr>`).join('');
+}
+
+async function deleteStudent() {
+  if (!currentDetailId) return;
+  if (!confirm('Delete this student and all their data permanently?')) return;
+  try {
+    await apiDelete(`/api/admin/student/${currentDetailId}`);
+    closeDetail();
+    loadStudents();
+  } catch(e) { alert(e.message); }
+}
+
+// ═══════════════════════════════════════════════
+// OVERVIEW PAGE
+// ═══════════════════════════════════════════════
+function buildOverview() {
+  const s = allStudents;
+  document.getElementById('overview-big-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-val" style="color:var(--cyan)">${s.length}</div><div class="stat-lbl">TOTAL STUDENTS</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--green)">${s.filter(x=>x.dayNumber>=20).length}</div><div class="stat-lbl">COMPLETED 20 DAYS</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--yellow)">${s.length ? Math.round(s.reduce((a,x)=>a+x.avgScore,0)/s.length) : 0}%</div><div class="stat-lbl">PLATFORM AVG SCORE</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--purple)">${s.reduce((a,x)=>a+x.totalPracticed,0)}</div><div class="stat-lbl">TOTAL SENTENCES</div></div>
+  `;
+
+  // Level completion (approximate from avg)
+  const lvNames = ['Basics','Everyday','Sentences','Academic','Advanced'];
+  const lvColors = ['var(--cyan)','var(--green)','var(--yellow)','var(--purple)','var(--pink)'];
+  let lvHtml = '';
+  for (let lv=1; lv<=5; lv++) {
+    const approxPct = Math.max(0, Math.round(100 - (lv-1)*15 - Math.random()*10));
+    lvHtml += `
+      <div class="lv-row" style="margin-bottom:10px">
+        <div class="lv-name" style="color:${lvColors[lv-1]}">${lvNames[lv-1]}</div>
+        <div class="lv-prog"><div class="prog-track"><div class="prog-fill" style="width:${approxPct}%;background:${lvColors[lv-1]}"></div></div></div>
+        <div class="lv-nums">${approxPct}%</div>
+      </div>`;
+  }
+  document.getElementById('overview-levels').innerHTML = lvHtml || '<div class="empty-state">No data</div>';
+
+  // Top students
+  const top5 = [...s].sort((a,b) => b.avgScore - a.avgScore).slice(0, 5);
+  document.getElementById('overview-top').innerHTML = top5.length
+    ? top5.map((st, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+        <div style="font-family:'Bungee',sans-serif;font-size:.9rem;color:${i===0?'var(--yellow)':i===1?'var(--dim)':i===2?'var(--yellow)':'var(--dim)'}">${['🥇','🥈','🥉','4.','5.'][i]}</div>
+        <div style="flex:1;font-family:'Space Mono',monospace;font-size:.75rem">${esc(st.username)}</div>
+        <div style="font-family:'Bungee',sans-serif;font-size:.8rem;color:var(--green)">${st.avgScore}%</div>
+      </div>`).join('')
+    : '<div class="empty-state">No students yet</div>';
+}
+
+// ═══════════════════════════════════════════════
+// API
+// ═══════════════════════════════════════════════
+async function api(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(adminToken ? {'Authorization':'Bearer '+adminToken} : {}) },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) { const e = new Error(data.error || 'Request failed'); e.status=res.status; throw e; }
+  return data;
+}
+async function apiGet(url) {
+  const res = await fetch(url, { headers: { 'Authorization': 'Bearer '+adminToken } });
+  const data = await res.json();
+  if (!res.ok) { const e = new Error(data.error || 'Request failed'); e.status=res.status; throw e; }
+  return data;
+}
+async function apiDelete(url) {
+  const res = await fetch(url, { method: 'DELETE', headers: { 'Authorization': 'Bearer '+adminToken } });
+  const data = await res.json();
+  if (!res.ok) { const e = new Error(data.error || 'Request failed'); throw e; }
+  return data;
+}
+
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDate(d) { if(!d) return '—'; return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
+function fmtDateTime(d) { if(!d) return '—'; return new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }
+</script>
+</body>
+</html>
