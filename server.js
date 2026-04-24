@@ -16,7 +16,7 @@ const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || '';
 const MAX_DAYS = 20; // 100 sentences per level / 5 per day = 20 days (~3 weeks)
 const SENTENCES_PER_DAY = 5;
 
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Explicit root routes in case static middleware path resolution fails
