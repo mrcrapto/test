@@ -776,20 +776,29 @@ function nextSentence() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TTS
+// TTS — mobile-safe with timeout fallback
 // ═══════════════════════════════════════════════════════════════
+let ttsSafetyTimer = null;
+
 function doUnlockTTS() {
-  if (ttsUnlocked) return;
-  const utt = new SpeechSynthesisUtterance('\u00A0');
-  utt.volume = 0;
-  utt.onend = () => { ttsUnlocked = true; if (pendingSpeech) { const p=pendingSpeech; pendingSpeech=null; _doSpeak(p.text,p.rate,p.onWord,p.onEnd); }};
-  utt.onerror = () => { ttsUnlocked = true; };
-  speechSynthesis.speak(utt);
+  // On mobile speechSynthesis is unreliable — just mark unlocked immediately
+  ttsUnlocked = true;
+  if (pendingSpeech) {
+    const p = pendingSpeech; pendingSpeech = null;
+    _doSpeak(p.text, p.rate, p.onWord, p.onEnd);
+  }
 }
 
 function playTTS(text, rate) {
   speechSynthesis.cancel();
+  clearTimeout(ttsSafetyTimer);
   const sentence = text;
+
+  // Safety net: if TTS never fires onend (very common on iOS/mobile),
+  // force-unlock buttons after estimated speech duration
+  const estimatedMs = Math.max(4000, text.split(' ').length * 480);
+  ttsSafetyTimer = setTimeout(() => { clearHighlights(); onTTSDone(); }, estimatedMs + 2500);
+
   if (!ttsUnlocked) {
     pendingSpeech = { text, rate, onWord: ci => highlightWord(ci, sentence), onEnd: onTTSDone };
   } else {
@@ -805,12 +814,13 @@ function _doSpeak(text, rate, onWord, onEnd) {
     voices.find(v => v.lang==='en-US') || voices.find(v => v.lang.startsWith('en')) || null;
   if (voice) utt.voice = voice;
   utt.onboundary = e => { if (e.name==='word' && onWord) onWord(e.charIndex); };
-  utt.onend = () => { clearHighlights(); if (onEnd) onEnd(); };
-  utt.onerror = () => { clearHighlights(); if (onEnd) onEnd(); };
+  utt.onend = () => { clearTimeout(ttsSafetyTimer); clearHighlights(); if (onEnd) onEnd(); };
+  utt.onerror = () => { clearTimeout(ttsSafetyTimer); clearHighlights(); if (onEnd) onEnd(); };
   speechSynthesis.speak(utt);
 }
 
 function onTTSDone() {
+  clearTimeout(ttsSafetyTimer);
   if (state !== ST.TTS) return;
   state = ST.WAIT;
   setStatus('YOUR TURN — TAP THE MIC', '');
