@@ -639,8 +639,20 @@ async function loadLobby() {
       document.getElementById('lob-notice').textContent = `✅ Day ${dayNumber} complete! Come back tomorrow for new sentences.`;
     }
   } catch (e) {
-    if (e.status === 401) { doLogout(); return; }
-    console.error(e);
+    console.error('loadLobby failed:', e);
+    // Auth/token issue → force re-login
+    if (e.status === 401 || e.status === 403) {
+      alert('Your session expired. Please log in again.');
+      doLogout();
+      return;
+    }
+    // Show actual error to user
+    const noticeEl = document.getElementById('lob-notice');
+    if (noticeEl) {
+      noticeEl.innerHTML = `<span style="color:var(--pink)">⚠️ Error loading data: ${e.message || 'Network error'}<br>Try logging out and back in.</span>`;
+    } else {
+      alert(`Error loading data: ${e.message || 'Network error'}\nTry logging out and back in.`);
+    }
   }
 }
 
@@ -1028,7 +1040,7 @@ async function transcribeAndEvaluate(blob, mimeType) {
     console.warn('Transcription failed:', e.message);
     document.getElementById('spin-box').style.display = 'none';
     setStatus('TRANSCRIPTION FAILED — TRY AGAIN', '');
-    showTip('⚠️ Make sure OPENAI_API_KEY is set in Railway variables');
+    showTip('⚠️ Make sure DEEPGRAM_API_KEY is set in Railway variables');
     setBtn('btn-mic', false); setBtn('btn-replay', false);
     state = ST.WAIT;
   }
