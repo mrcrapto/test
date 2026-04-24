@@ -652,15 +652,51 @@ async function startDay() {
     try { micStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
     catch { alert('Microphone access is required. Please allow and try again.'); return; }
   }
+
+  // CRITICAL: Unlock TTS inside a user-gesture context (required for iOS/Safari)
+  if (!ttsUnlocked) {
+    try {
+      const unlock = new SpeechSynthesisUtterance(' ');
+      unlock.volume = 0;
+      unlock.rate = 1;
+      speechSynthesis.speak(unlock);
+      ttsUnlocked = true;
+    } catch(e) { console.warn('TTS unlock failed:', e); ttsUnlocked = true; }
+  }
+
+  // Defensive: make sure we have data
+  if (!todayData || !todayData.sentences) {
+    alert('Session data missing. Reloading...');
+    await loadLobby();
+    if (!todayData || !todayData.sentences) {
+      alert('Could not load sentences. Please check your internet and try again.');
+      return;
+    }
+  }
+
   gameLvl = 1;
   gameSentIdx = 0; gameCorrect = 0; streakResults = [];
   show('s-game');
-  document.getElementById('g-day-badge').textContent = `DAY ${todayData.dayNumber}`;
+  document.getElementById('g-day-badge').textContent = `DAY ${todayData.dayNumber || 1}`;
   doCountdown(() => loadGameSentence());
 }
 
 function loadGameSentence() {
+  // Defensive checks with visible error feedback
+  if (!todayData || !todayData.sentences) {
+    document.getElementById('sentence-wrap').innerHTML =
+      '<span style="color:var(--pink);font-size:1rem">⚠️ Data missing — please refresh the page</span>';
+    setStatus('ERROR — REFRESH PAGE', '');
+    return;
+  }
   const lvSentences = todayData.sentences[gameLvl];
+  if (!lvSentences || !Array.isArray(lvSentences)) {
+    document.getElementById('sentence-wrap').innerHTML =
+      `<span style="color:var(--pink);font-size:1rem">⚠️ No sentences for level ${gameLvl}</span>`;
+    setStatus('ERROR — NO DATA', '');
+    return;
+  }
+
   // Skip already-done sentences
   while (gameSentIdx < lvSentences.length && lvSentences[gameSentIdx].done) {
     gameSentIdx++;
@@ -673,6 +709,12 @@ function loadGameSentence() {
   }
 
   const sentObj = lvSentences[gameSentIdx];
+  if (!sentObj || !sentObj.text) {
+    document.getElementById('sentence-wrap').innerHTML =
+      '<span style="color:var(--pink);font-size:1rem">⚠️ Invalid sentence data</span>';
+    setStatus('ERROR', '');
+    return;
+  }
   attempts = 0;
 
   document.getElementById('g-level').textContent = LEVEL_NAMES[gameLvl];
@@ -693,11 +735,12 @@ function loadGameSentence() {
   document.getElementById('waveform').style.display = 'none';
   document.getElementById('spin-box').style.display = 'none';
 
-  setBtn('btn-replay', true); setBtn('btn-mic', true); setBtn('btn-next', true);
+  // Enable mic immediately — don't wait for TTS (which may fail silently on mobile)
+  setBtn('btn-replay', false); setBtn('btn-mic', false); setBtn('btn-next', true);
   document.getElementById('btn-mic').classList.remove('recording');
   document.getElementById('btn-mic').textContent = '🎤';
 
-  setStatus('SPEAKING', 'tts');
+  setStatus('SPEAKING — LISTEN CAREFULLY', 'tts');
   state = ST.TTS;
   playTTS(sentObj.text, LEVEL_TTS_RATE[gameLvl]);
 }
