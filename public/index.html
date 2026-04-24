@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎤 Speech Karaoke</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Space+Mono:wght@400;700&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07071a;--surface:#0e0e2c;--surface2:#161638;
+  --pink:#ff2d78;--cyan:#00e5ff;--yellow:#ffd60a;--green:#39ff14;--purple:#b44aff;
+  --text:#f0f0f8;--dim:#6666aa;
+  --glow-pink:0 0 24px rgba(255,45,120,.65);--glow-cyan:0 0 24px rgba(0,229,255,.65);
+  --glow-green:0 0 24px rgba(57,255,20,.65);--glow-yellow:0 0 20px rgba(255,214,10,.6);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;position:relative}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 18% 28%,rgba(180,74,255,.07) 0,transparent 45%),
+  radial-gradient(circle at 82% 72%,rgba(0,229,255,.06) 0,transparent 45%),
+  radial-gradient(circle at 50% 50%,rgba(255,45,120,.04) 0,transparent 60%)}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:200;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.12) 3px,rgba(0,0,0,.12) 4px)}
+
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:20px;opacity:0;pointer-events:none;transition:opacity .4s ease;overflow-y:auto;z-index:1}
+.screen.active{opacity:1;pointer-events:all}
+
+/* ── TYPOGRAPHY ── */
+.neon-title{font-family:'Bungee',sans-serif;font-size:clamp(3rem,10vw,5.5rem);color:var(--pink);
+  text-shadow:var(--glow-pink),0 0 80px rgba(255,45,120,.35);letter-spacing:3px;line-height:1}
+.neon-sub{font-family:'Bungee',sans-serif;font-size:clamp(.7rem,2vw,.9rem);color:var(--cyan);
+  text-shadow:var(--glow-cyan);letter-spacing:6px;text-transform:uppercase;margin-top:10px}
+
+/* ── BUTTONS ── */
+.btn{font-family:'Bungee',sans-serif;font-size:.9rem;letter-spacing:2px;padding:13px 28px;
+  border:none;border-radius:5px;cursor:pointer;transition:all .2s ease;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:var(--pink);color:#fff;box-shadow:var(--glow-pink)}
+.btn-primary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 0 50px rgba(255,45,120,.85)}
+.btn-ghost{background:transparent;color:var(--cyan);border:2px solid var(--cyan);box-shadow:var(--glow-cyan)}
+.btn-ghost:hover:not(:disabled){background:rgba(0,229,255,.08);transform:translateY(-2px)}
+.btn:disabled{opacity:.25;cursor:not-allowed;transform:none!important}
+.btn-sm{font-size:.75rem;padding:9px 18px;letter-spacing:1px}
+.btn-link{background:none;border:none;cursor:pointer;color:var(--cyan);font-size:.82rem;
+  font-family:'Space Mono',monospace;text-decoration:underline;padding:0}
+.btn-link:hover{color:var(--text)}
+
+/* ── MIC BUTTON ── */
+.btn-mic{width:86px;height:86px;border-radius:50%;border:none;background:var(--pink);
+  box-shadow:var(--glow-pink);font-size:2rem;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:all .2s ease;flex-shrink:0;position:relative}
+.btn-mic:not(:disabled):hover{transform:scale(1.12);box-shadow:0 0 60px rgba(255,45,120,.9)}
+.btn-mic:disabled{opacity:.25;cursor:not-allowed}
+.btn-mic.recording{background:var(--cyan);box-shadow:var(--glow-cyan);animation:pulse-mic .9s ease-in-out infinite}
+.btn-mic.recording::after{content:'';position:absolute;inset:-10px;border-radius:50%;
+  border:2px solid var(--cyan);opacity:0;animation:ripple-ring 1.4s ease-out infinite}
+@keyframes ripple-ring{0%{transform:scale(.8);opacity:.7}100%{transform:scale(1.5);opacity:0}}
+@keyframes pulse-mic{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+
+/* ── FORM ELEMENTS ── */
+.field{display:flex;flex-direction:column;gap:6px;width:100%}
+.field label{font-family:'Bungee',sans-serif;font-size:.7rem;letter-spacing:2px;color:var(--dim)}
+.field input{background:var(--surface2);border:1.5px solid rgba(255,255,255,.1);border-radius:8px;
+  padding:13px 16px;color:var(--text);font-family:'Space Mono',monospace;font-size:.9rem;
+  outline:none;transition:border-color .2s,box-shadow .2s}
+.field input:focus{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(0,229,255,.12)}
+.field input::placeholder{color:var(--dim)}
+.field .err{font-size:.75rem;color:var(--pink);font-family:'Space Mono',monospace;min-height:16px}
+
+.auth-card{background:rgba(14,14,44,.85);border:1px solid rgba(255,255,255,.07);
+  border-radius:20px;padding:36px 32px;width:100%;max-width:420px;
+  backdrop-filter:blur(14px);display:flex;flex-direction:column;gap:22px}
+
+.card{background:rgba(14,14,44,.75);border:1px solid rgba(255,255,255,.07);
+  border-radius:18px;padding:28px 24px;width:100%;max-width:720px;backdrop-filter:blur(12px)}
+
+/* ── STATUS / PROGRESS ── */
+.prog-track{width:100%;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--pink),var(--cyan));border-radius:2px;transition:width .6s ease}
+.status-row{display:flex;align-items:center;gap:8px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0;transition:all .3s}
+.status-dot.tts{background:var(--cyan);box-shadow:var(--glow-cyan);animation:blink 1s infinite}
+.status-dot.rec{background:var(--pink);box-shadow:var(--glow-pink);animation:blink .5s infinite}
+.status-dot.eval{background:var(--yellow);box-shadow:var(--glow-yellow);animation:blink .7s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.status-text{font-family:'Bungee',sans-serif;font-size:.72rem;letter-spacing:3px;color:var(--dim)}
+
+/* ── SENTENCE DISPLAY ── */
+.sentence-wrap{font-family:'Space Mono',monospace;font-size:clamp(1rem,2.8vw,1.65rem);
+  line-height:2;text-align:center;min-height:4rem}
+.sentence-wrap .w{display:inline-block;padding:0 2px;color:rgba(240,240,248,.35);transition:all .15s ease}
+.sentence-wrap .w.lit{color:var(--yellow);text-shadow:var(--glow-yellow),0 0 40px rgba(255,214,10,.4);transform:scale(1.18)}
+.sentence-wrap .w.done{color:rgba(240,240,248,.75)}
+.sentence-wrap .w.w-correct{color:var(--green);text-shadow:var(--glow-green)}
+.sentence-wrap .w.w-wrong{color:var(--pink);text-shadow:var(--glow-pink);text-decoration:underline wavy rgba(255,45,120,.5)}
+
+/* ── WAVEFORM ── */
+.waveform{display:flex;align-items:center;justify-content:center;gap:3px;height:50px}
+.wb{width:5px;border-radius:3px;background:var(--cyan);box-shadow:0 0 6px rgba(0,229,255,.5);
+  min-height:5px;height:5px;transition:height .08s ease}
+
+/* ── GAME HEADER ── */
+.game-header{position:fixed;top:0;left:0;right:0;z-index:50;padding:13px 22px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(7,7,26,.88);backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,255,255,.06)}
+.g-level{font-family:'Bungee',sans-serif;font-size:.85rem;color:var(--pink);letter-spacing:1.5px}
+.g-count{font-family:'Space Mono',monospace;font-size:.8rem;color:var(--dim)}
+.g-correct{font-family:'Bungee',sans-serif;font-size:.85rem;color:var(--green);text-shadow:var(--glow-green)}
+.g-day-badge{font-family:'Bungee',sans-serif;font-size:.7rem;color:var(--yellow);letter-spacing:1px;
+  background:rgba(255,214,10,.08);border:1px solid rgba(255,214,10,.3);border-radius:20px;padding:4px 12px}
+
+/* ── RESULT BOX ── */
+.score-track{width:100%;height:10px;background:rgba(255,255,255,.08);border-radius:5px;overflow:hidden}
+.score-fill{height:100%;width:0%;border-radius:5px;transition:width 1s cubic-bezier(.22,.61,.36,1)}
+.score-fill.high{background:linear-gradient(90deg,var(--green),var(--cyan))}
+.score-fill.mid{background:linear-gradient(90deg,var(--yellow),var(--green))}
+.score-fill.low{background:linear-gradient(90deg,var(--pink),var(--yellow))}
+.badge{font-family:'Bungee',sans-serif;font-size:.72rem;letter-spacing:2px;padding:5px 13px;border-radius:3px}
+.badge-pass{background:rgba(57,255,20,.1);color:var(--green);border:1.5px solid var(--green);box-shadow:var(--glow-green)}
+.badge-fail{background:rgba(255,45,120,.1);color:var(--pink);border:1.5px solid rgba(255,45,120,.5)}
+.feedback{font-size:1.05rem;font-weight:800;color:var(--yellow);text-align:center;text-shadow:var(--glow-yellow);min-height:26px}
+.transcript{font-family:'Space Mono',monospace;font-size:.8rem;color:var(--dim);text-align:center;font-style:italic;min-height:18px;word-break:break-word}
+.result-box{display:none;flex-direction:column;align-items:center;gap:11px;width:100%}
+.result-box.show{display:flex}
+.controls{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
+.spinner{width:28px;height:28px;border-radius:50%;border:3px solid rgba(0,229,255,.15);border-top-color:var(--cyan);animation:spin .75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── STREAK ── */
+.streak-bar{display:flex;gap:6px;justify-content:center;align-items:center;
+  font-family:'Bungee',sans-serif;font-size:.7rem;color:var(--dim);letter-spacing:1px}
+.streak-pip{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.15);transition:all .3s}
+.streak-pip.hit{background:var(--green);border-color:var(--green);box-shadow:var(--glow-green)}
+.streak-pip.miss{background:var(--pink);border-color:var(--pink);box-shadow:var(--glow-pink)}
+
+/* ── COUNTDOWN ── */
+.countdown-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:rgba(7,7,26,.85);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .2s}
+.countdown-overlay.show{opacity:1;pointer-events:all}
+.countdown-num{font-family:'Bungee',sans-serif;font-size:8rem;color:var(--cyan);text-shadow:var(--glow-cyan);animation:count-pop .5s ease}
+@keyframes count-pop{0%{transform:scale(2);opacity:0}60%{transform:scale(.9)}100%{transform:scale(1);opacity:1}}
+
+/* ── MISC ── */
+.big-icon{font-size:4.5rem;animation:pop .5s ease}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.18)}100%{transform:scale(1)}}
+.warn{background:rgba(255,214,10,.07);border:1.5px solid var(--yellow);border-radius:8px;
+  padding:11px 18px;font-size:.82rem;color:var(--yellow);max-width:440px;text-align:center;line-height:1.5}
+.notice{font-size:.78rem;color:var(--dim);text-align:center;max-width:420px;line-height:1.6}
+hr.div{border:none;border-top:1px solid rgba(255,255,255,.07);width:100%;margin:2px 0}
+.tip-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--surface2);border:1px solid rgba(0,229,255,.2);border-radius:10px;padding:10px 20px;
+  font-size:.78rem;color:var(--cyan);font-family:'Space Mono',monospace;z-index:90;opacity:0;
+  transition:all .4s ease;pointer-events:none;max-width:90vw;text-align:center}
+.tip-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.shake{animation:shake .4s ease}
+@keyframes float-up{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(-120px) rotate(360deg);opacity:0}}
+.confetti-piece{position:absolute;width:10px;height:10px;border-radius:2px;animation:float-up 1.5s ease forwards;pointer-events:none}
+.attempts-row{display:flex;gap:4px;align-items:center;justify-content:center;
+  font-family:'Space Mono',monospace;font-size:.7rem;color:var(--dim)}
+.attempts-row span{color:var(--yellow)}
+
+/* ── DAY PROGRESS PANEL ── */
+.day-progress{background:rgba(14,14,44,.75);border:1px solid rgba(255,255,255,.07);
+  border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.dp-label{font-family:'Bungee',sans-serif;font-size:.7rem;letter-spacing:2px;color:var(--dim)}
+.dp-val{font-family:'Bungee',sans-serif;font-size:1.2rem;color:var(--cyan);text-shadow:var(--glow-cyan)}
+
+/* ── LEVEL TAB NAV ── */
+.level-tabs{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.lvl-tab{font-family:'Bungee',sans-serif;font-size:.6rem;letter-spacing:1px;padding:6px 14px;
+  border-radius:20px;background:var(--surface2);border:1.5px solid rgba(255,255,255,.1);
+  color:var(--dim);cursor:pointer;transition:all .3s}
+.lvl-tab.done{border-color:var(--green);color:var(--green);box-shadow:0 0 10px rgba(57,255,20,.2)}
+.lvl-tab.active-tab{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 10px rgba(0,229,255,.3)}
+.lvl-tab.partial{border-color:var(--yellow);color:var(--yellow)}
+
+/* Toast/alert */
+.alert{padding:11px 18px;border-radius:8px;font-size:.83rem;font-family:'Space Mono',monospace;
+  border:1.5px solid;text-align:center}
+.alert-err{background:rgba(255,45,120,.08);border-color:rgba(255,45,120,.4);color:var(--pink)}
+.alert-ok{background:rgba(57,255,20,.08);border-color:rgba(57,255,20,.4);color:var(--green)}
+
+/* Progress bars in day panel */
+.mini-prog{height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;flex:1;min-width:60px}
+.mini-prog-fill{height:100%;border-radius:2px;transition:width .8s ease}
+.lv1-c{background:var(--cyan)}.lv2-c{background:var(--green)}.lv3-c{background:var(--yellow)}.lv4-c{background:var(--purple)}.lv5-c{background:var(--pink)}
+</style>
+</head>
+<body>
+
+<div class="countdown-overlay" id="countdown-overlay">
+  <div class="countdown-num" id="countdown-num">3</div>
+</div>
+<div class="tip-toast" id="tip-toast"></div>
+
+<!-- ══════════════════════════════════════════════ SCREEN: AUTH ══ -->
+<div id="s-auth" class="screen active">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:420px">
+    <div style="text-align:center;margin-bottom:6px">
+      <div class="neon-title" style="font-size:clamp(2.2rem,7vw,3.5rem)">SPEECH<br>KARAOKE</div>
+      <div class="neon-sub">AI-Powered English Pronunciation</div>
+    </div>
+
+    <!-- TAB SWITCHER -->
+    <div style="display:flex;gap:0;width:100%;background:var(--surface);border-radius:10px;padding:4px">
+      <button id="tab-login" onclick="switchTab('login')" class="btn" style="flex:1;justify-content:center;border-radius:7px;font-size:.75rem;padding:10px">LOGIN</button>
+      <button id="tab-register" onclick="switchTab('register')" class="btn btn-ghost" style="flex:1;justify-content:center;border-radius:7px;font-size:.75rem;padding:10px">REGISTER</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div class="auth-card" id="form-login">
+      <div id="login-alert"></div>
+      <div class="field">
+        <label>USERNAME</label>
+        <input type="text" id="l-username" placeholder="your_username" autocomplete="username">
+        <div class="err" id="l-username-err"></div>
+      </div>
+      <div class="field">
+        <label>PASSWORD</label>
+        <input type="password" id="l-password" placeholder="••••••••" autocomplete="current-password">
+        <div class="err" id="l-password-err"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doLogin()">🎤 LOGIN</button>
+      <div style="text-align:center">
+        <button class="btn-link" onclick="switchTab('forgot')">Forgot your password?</button>
+      </div>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div class="auth-card" id="form-register" style="display:none">
+      <div id="reg-alert"></div>
+      <div class="field">
+        <label>EMAIL ADDRESS</label>
+        <input type="email" id="r-email" placeholder="you@email.com" autocomplete="email">
+        <div class="err" id="r-email-err"></div>
+      </div>
+      <div class="field">
+        <label>USERNAME</label>
+        <input type="text" id="r-username" placeholder="choose_a_username" autocomplete="username">
+        <div class="err" id="r-username-err"></div>
+      </div>
+      <div class="field">
+        <label>PASSWORD</label>
+        <input type="password" id="r-password" placeholder="min. 6 characters" autocomplete="new-password">
+        <div class="err" id="r-password-err"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doRegister()">🚀 CREATE ACCOUNT</button>
+    </div>
+
+    <!-- FORGOT PASSWORD FORM -->
+    <div class="auth-card" id="form-forgot" style="display:none">
+      <div style="font-family:'Bungee',sans-serif;color:var(--cyan);font-size:.85rem;letter-spacing:2px">RESET PASSWORD</div>
+      <div id="forgot-alert"></div>
+      <div class="field">
+        <label>YOUR EMAIL</label>
+        <input type="email" id="f-email" placeholder="you@email.com">
+        <div class="err" id="f-email-err"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doForgot()">📧 SEND RESET CODE</button>
+      <div style="text-align:center">
+        <button class="btn-link" onclick="switchTab('login')">← Back to Login</button>
+      </div>
+    </div>
+
+    <!-- RESET PASSWORD FORM -->
+    <div class="auth-card" id="form-reset" style="display:none">
+      <div style="font-family:'Bungee',sans-serif;color:var(--cyan);font-size:.85rem;letter-spacing:2px">NEW PASSWORD</div>
+      <div id="reset-alert"></div>
+      <div class="field">
+        <label>RESET CODE</label>
+        <input type="text" id="reset-token" placeholder="Paste your reset code here">
+      </div>
+      <div class="field">
+        <label>NEW PASSWORD</label>
+        <input type="password" id="reset-pw" placeholder="min. 6 characters">
+        <div class="err" id="reset-pw-err"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doReset()">🔑 RESET PASSWORD</button>
+      <div style="text-align:center">
+        <button class="btn-link" onclick="switchTab('login')">← Back to Login</button>
+      </div>
+    </div>
+
+    <div class="notice">5 levels · 20 days · AI pronunciation judge<br>Chrome / Edge recommended for best experience</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ SCREEN: LOBBY ══ -->
+<div id="s-lobby" class="screen">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:20px;width:100%;max-width:600px">
+    <div style="text-align:center">
+      <div class="neon-title" style="font-size:clamp(2rem,6vw,3rem)">SPEECH KARAOKE</div>
+      <div class="neon-sub" id="lobby-welcome">WELCOME BACK!</div>
+    </div>
+
+    <!-- Day + stats bar -->
+    <div class="day-progress" style="width:100%">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div class="dp-label">TODAY</div>
+        <div class="dp-val" id="lob-day">DAY 1</div>
+      </div>
+      <div class="prog-track" style="flex:1;height:8px">
+        <div class="prog-fill" id="lob-day-prog" style="width:0%"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;text-align:right">
+        <div class="dp-label">OF 20</div>
+        <div class="dp-val" id="lob-day-of">/ 20</div>
+      </div>
+    </div>
+
+    <!-- Level tabs -->
+    <div class="level-tabs" id="lob-level-tabs"></div>
+
+    <!-- Today's progress per level -->
+    <div style="display:flex;flex-direction:column;gap:8px;width:100%" id="lob-level-list"></div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <button class="btn btn-primary" style="font-size:1.1rem;padding:16px 36px" onclick="startDay()">
+        🎤 PRACTICE TODAY
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">LOGOUT</button>
+    </div>
+
+    <div class="notice" id="lob-notice">Speak clearly · 5 sentences per level · New sentences every day</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ SCREEN: GAME ══ -->
+<div id="s-game" class="screen">
+  <div class="game-header">
+    <div class="g-level" id="g-level">LEVEL 1</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="g-day-badge" id="g-day-badge">DAY 1</div>
+      <div class="g-count" id="g-count">1 / 5</div>
+    </div>
+    <div class="g-correct" id="g-correct">✓ 0</div>
+  </div>
+
+  <div style="width:100%;max-width:720px;display:flex;flex-direction:column;gap:16px;padding-top:68px">
+    <div class="prog-track"><div class="prog-fill" id="g-prog" style="width:0%"></div></div>
+    <div class="streak-bar" id="streak-bar"></div>
+
+    <div class="card">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:18px">
+        <div class="status-row">
+          <div class="status-dot" id="s-dot"></div>
+          <div class="status-text" id="s-text">READY</div>
+        </div>
+
+        <div class="sentence-wrap" id="sentence-wrap"></div>
+
+        <div class="waveform" id="waveform" style="display:none">
+          <div class="wb" id="wb0"></div><div class="wb" id="wb1"></div><div class="wb" id="wb2"></div>
+          <div class="wb" id="wb3"></div><div class="wb" id="wb4"></div><div class="wb" id="wb5"></div>
+          <div class="wb" id="wb6"></div><div class="wb" id="wb7"></div><div class="wb" id="wb8"></div>
+          <div class="wb" id="wb9"></div><div class="wb" id="wb10"></div><div class="wb" id="wb11"></div>
+          <div class="wb" id="wb12"></div><div class="wb" id="wb13"></div><div class="wb" id="wb14"></div>
+        </div>
+
+        <div id="spin-box" style="display:none;flex-direction:column;align-items:center;gap:10px">
+          <div class="spinner"></div>
+          <div class="status-row"><div class="status-dot eval"></div><div class="status-text">ANALYZING YOUR SPEECH</div></div>
+        </div>
+
+        <hr class="div">
+
+        <div class="result-box" id="result-box">
+          <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px">
+            <div style="font-family:'Bungee',sans-serif;font-size:2.2rem;color:var(--cyan);text-shadow:var(--glow-cyan)" id="r-score">--</div>
+            <div id="r-badge"></div>
+          </div>
+          <div class="score-track"><div class="score-fill" id="r-bar"></div></div>
+          <div class="feedback" id="r-feedback"></div>
+          <div class="transcript" id="r-transcript"></div>
+          <div class="attempts-row" id="r-attempts"></div>
+        </div>
+
+        <div class="controls">
+          <button class="btn btn-ghost btn-sm" id="btn-replay" onclick="replayTTS()" disabled>🔊 LISTEN</button>
+          <button class="btn-mic" id="btn-mic" onclick="handleMic()" disabled>🎤</button>
+          <button class="btn btn-primary btn-sm" id="btn-next" onclick="nextSentence()" disabled>NEXT →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════ SCREEN: LEVEL COMPLETE ══ -->
+<div id="s-lvl-ok" class="screen">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center;position:relative" id="confetti-zone">
+    <div class="big-icon" id="lc-icon">🏆</div>
+    <div class="neon-title" style="font-size:clamp(2.2rem,7vw,4rem)" id="lc-title">LEVEL COMPLETE!</div>
+    <div class="neon-sub" id="lc-sub">EXCELLENT WORK</div>
+    <div style="font-size:1rem;color:var(--dim)" id="lc-stats"></div>
+    <button class="btn btn-primary" id="btn-next-lv" onclick="goNextLevel()">NEXT LEVEL →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ SCREEN: LEVEL FAIL ══ -->
+<div id="s-lvl-fail" class="screen">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center">
+    <div class="big-icon">😤</div>
+    <div class="neon-title" style="font-size:clamp(2rem,7vw,3.5rem);color:var(--pink)">KEEP TRYING!</div>
+    <div class="neon-sub" style="color:var(--pink)">NOT QUITE THERE YET</div>
+    <div style="font-size:1rem;color:var(--dim)" id="fail-stats"></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <button class="btn btn-primary" onclick="retryLevel()">🔄 TRY AGAIN</button>
+      <button class="btn btn-ghost btn-sm" onclick="goToLobby()">RETURN TO LOBBY</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ SCREEN: DAY DONE ══ -->
+<div id="s-day-done" class="screen">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center" id="dd-confetti">
+    <div style="font-size:5rem;animation:pop .5s ease">🌟</div>
+    <div class="neon-title" style="font-size:clamp(2rem,7vw,3.5rem)">DAY COMPLETE!</div>
+    <div class="neon-sub" id="dd-sub">ALL 5 LEVELS DONE</div>
+    <div style="font-family:'Space Mono',monospace;font-size:.85rem;color:var(--dim);max-width:380px;line-height:1.9" id="dd-stats"></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <button class="btn btn-primary" onclick="goToLobby()">🏠 BACK TO LOBBY</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONSTANTS & STATE
+// ═══════════════════════════════════════════════════════════════
+const LEVEL_NAMES = {1:'LEVEL 1 — BASICS', 2:'LEVEL 2 — EVERYDAY', 3:'LEVEL 3 — SENTENCES', 4:'LEVEL 4 — ACADEMIC', 5:'LEVEL 5 — ADVANCED'};
+const LEVEL_TTS_RATE = {1:.82, 2:.88, 3:.92, 4:.95, 5:1.0};
+const REQUIRED_CORRECT = 3;
+
+let token = null, currentUser = null;
+let todayData = null;     // { dayNumber, maxDays, sentences: {1:[...], 2:[...], ...} }
+let gameLvl = 1;          // current level being played (1-5)
+let gameSentIdx = 0;      // index within today's 5 sentences for this level
+let gameCorrect = 0;
+let streakResults = [];
+let attempts = 0;
+
+// speech state
+const ST = {TTS:'tts', WAIT:'wait', REC:'rec', EVAL:'eval', RESULT:'result'};
+let state = ST.WAIT;
+let recognition = null, waveInt = null, waveCtx = null, waveAnalyser = null, waveSource = null;
+let micStream = null, ttsUnlocked = false, pendingSpeech = null, recDone = false;
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  // Try to restore session
+  const saved = localStorage.getItem('sk_token');
+  const savedUser = localStorage.getItem('sk_user');
+  if (saved && savedUser) {
+    token = saved;
+    currentUser = JSON.parse(savedUser);
+    loadLobby();
+  }
+
+  const hasSR = 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
+  if (!hasSR) showTip('⚠️ Speech Recognition not supported — use Chrome/Edge');
+
+  speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+  document.addEventListener('pointerdown', doUnlockTTS, { once: true });
+
+  // Enter key submit
+  document.getElementById('l-password').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+  document.getElementById('r-password').addEventListener('keydown', e => { if (e.key==='Enter') doRegister(); });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SCREENS
+// ═══════════════════════════════════════════════════════════════
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH TABS
+// ═══════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  ['login','register','forgot','reset'].forEach(t => {
+    document.getElementById('form-'+t).style.display = t === tab ? '' : 'none';
+  });
+  const tabLogin = document.getElementById('tab-login');
+  const tabReg = document.getElementById('tab-register');
+  if (tab === 'login') {
+    tabLogin.className = 'btn btn-primary'; tabReg.className = 'btn btn-ghost';
+  } else if (tab === 'register') {
+    tabReg.className = 'btn btn-primary'; tabLogin.className = 'btn btn-ghost';
+  } else {
+    tabLogin.className = 'btn btn-ghost'; tabReg.className = 'btn btn-ghost';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH ACTIONS
+// ═══════════════════════════════════════════════════════════════
+function clearFieldErrors(...ids) { ids.forEach(id => { const el=document.getElementById(id); if(el) el.textContent=''; }); }
+function setAlert(id, msg, type='err') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!msg) { el.innerHTML=''; return; }
+  el.innerHTML = `<div class="alert alert-${type}" style="margin-bottom:4px">${msg}</div>`;
+}
+
+async function doLogin() {
+  clearFieldErrors('l-username-err', 'l-password-err'); setAlert('login-alert', '');
+  const username = document.getElementById('l-username').value.trim();
+  const password = document.getElementById('l-password').value;
+  if (!username) { document.getElementById('l-username-err').textContent = 'Required'; return; }
+  if (!password) { document.getElementById('l-password-err').textContent = 'Required'; return; }
+
+  const btn = document.querySelector('#form-login .btn-primary');
+  btn.disabled = true; btn.textContent = 'LOGGING IN...';
+  try {
+    const res = await api('/api/auth/login', { username, password });
+    saveSession(res.token, res.user);
+    loadLobby();
+  } catch (e) {
+    setAlert('login-alert', e.message);
+  } finally { btn.disabled = false; btn.textContent = '🎤 LOGIN'; }
+}
+
+async function doRegister() {
+  clearFieldErrors('r-email-err','r-username-err','r-password-err'); setAlert('reg-alert','');
+  const email = document.getElementById('r-email').value.trim();
+  const username = document.getElementById('r-username').value.trim();
+  const password = document.getElementById('r-password').value;
+  let ok = true;
+  if (!email) { document.getElementById('r-email-err').textContent = 'Required'; ok=false; }
+  if (!username) { document.getElementById('r-username-err').textContent = 'Required'; ok=false; }
+  if (!password) { document.getElementById('r-password-err').textContent = 'Required'; ok=false; }
+  if (!ok) return;
+
+  const btn = document.querySelector('#form-register .btn-primary');
+  btn.disabled = true; btn.textContent = 'CREATING...';
+  try {
+    const res = await api('/api/auth/register', { email, username, password });
+    saveSession(res.token, res.user);
+    loadLobby();
+  } catch (e) {
+    setAlert('reg-alert', e.message);
+  } finally { btn.disabled = false; btn.textContent = '🚀 CREATE ACCOUNT'; }
+}
+
+async function doForgot() {
+  setAlert('forgot-alert','');
+  const email = document.getElementById('f-email').value.trim();
+  if (!email) { document.getElementById('f-email-err').textContent = 'Required'; return; }
+  const btn = document.querySelector('#form-forgot .btn-primary');
+  btn.disabled = true; btn.textContent = 'SENDING...';
+  try {
+    const res = await api('/api/auth/forgot-password', { email });
+    let msg = 'Reset code generated!';
+    if (res.resetToken) msg += `<br><br>Your reset code:<br><code style="word-break:break-all;color:var(--cyan)">${res.resetToken}</code><br><small style="color:var(--dim)">(In production this would be emailed)</small>`;
+    setAlert('forgot-alert', msg, 'ok');
+    switchTab('reset');
+    document.getElementById('reset-token').value = res.resetToken || '';
+  } catch (e) {
+    setAlert('forgot-alert', e.message);
+  } finally { btn.disabled = false; btn.textContent = '📧 SEND RESET CODE'; }
+}
+
+async function doReset() {
+  setAlert('reset-alert','');
+  const token_val = document.getElementById('reset-token').value.trim();
+  const newPassword = document.getElementById('reset-pw').value;
+  if (!token_val) { document.getElementById('reset-pw-err').textContent = 'Paste the reset code'; return; }
+  if (!newPassword || newPassword.length < 6) { document.getElementById('reset-pw-err').textContent = 'Min 6 characters'; return; }
+  const btn = document.querySelector('#form-reset .btn-primary');
+  btn.disabled = true; btn.textContent = 'RESETTING...';
+  try {
+    const res = await api('/api/auth/reset-password', { token: token_val, newPassword });
+    setAlert('reset-alert', res.message || 'Password reset! You can now log in.', 'ok');
+    setTimeout(() => switchTab('login'), 2000);
+  } catch (e) {
+    setAlert('reset-alert', e.message);
+  } finally { btn.disabled = false; btn.textContent = '🔑 RESET PASSWORD'; }
+}
+
+function saveSession(tok, user) { token = tok; currentUser = user; localStorage.setItem('sk_token', tok); localStorage.setItem('sk_user', JSON.stringify(user)); }
+function doLogout() { token = null; currentUser = null; localStorage.removeItem('sk_token'); localStorage.removeItem('sk_user'); show('s-auth'); switchTab('login'); }
+
+// ═══════════════════════════════════════════════════════════════
+// LOBBY
+// ═══════════════════════════════════════════════════════════════
+async function loadLobby() {
+  show('s-lobby');
+  try {
+    todayData = await apiGet('/api/user/today');
+    const profile = await apiGet('/api/user/profile');
+    currentUser = { ...currentUser, ...profile };
+
+    const { dayNumber, maxDays, sentences } = todayData;
+    document.getElementById('lobby-welcome').textContent = `WELCOME, ${currentUser.username.toUpperCase()}!`;
+    document.getElementById('lob-day').textContent = `DAY ${dayNumber}`;
+    document.getElementById('lob-day-of').textContent = `/ ${maxDays}`;
+    document.getElementById('lob-day-prog').style.width = (dayNumber / maxDays * 100) + '%';
+
+    // Build level tabs
+    const tabs = document.getElementById('lob-level-tabs');
+    tabs.innerHTML = '';
+    const lvList = document.getElementById('lob-level-list');
+    lvList.innerHTML = '';
+    const lvNames = ['BASICS','EVERYDAY','SENTENCES','ACADEMIC','ADVANCED'];
+    for (let lv = 1; lv <= 5; lv++) {
+      const lvSents = sentences[lv] || [];
+      const done = lvSents.filter(s => s.done).length;
+      const total = lvSents.length;
+      const pct = total ? Math.round(done/total*100) : 0;
+      const cls = done === total ? 'done' : done > 0 ? 'partial' : '';
+      tabs.innerHTML += `<div class="lvl-tab ${cls}">${lvNames[lv-1]}</div>`;
+      const barCls = `lv${lv}-c`;
+      lvList.innerHTML += `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0">
+          <div style="font-family:'Bungee',sans-serif;font-size:.7rem;color:var(--dim);width:70px">LVL ${lv}</div>
+          <div class="mini-prog"><div class="mini-prog-fill ${barCls}" style="width:${pct}%"></div></div>
+          <div style="font-family:'Space Mono',monospace;font-size:.7rem;color:var(--dim);width:50px;text-align:right">${done}/${total}</div>
+          ${done===total ? '<div style="color:var(--green);font-size:.8rem">✓</div>' : ''}
+        </div>`;
+    }
+
+    const allDone = [1,2,3,4,5].every(lv => {
+      const s = sentences[lv] || [];
+      return s.every(x => x.done);
+    });
+
+    if (dayNumber >= maxDays && allDone) {
+      document.getElementById('lob-notice').textContent = '🎉 You completed all 20 days! Amazing work!';
+      document.querySelector('#s-lobby .btn-primary').textContent = '🎉 VIEW COMPLETION';
+    } else if (allDone) {
+      document.getElementById('lob-notice').textContent = `✅ Day ${dayNumber} complete! Come back tomorrow for new sentences.`;
+    }
+  } catch (e) {
+    if (e.status === 401) { doLogout(); return; }
+    console.error(e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// START GAME DAY
+// ═══════════════════════════════════════════════════════════════
+async function startDay() {
+  if (!micStream) {
+    try { micStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch { alert('Microphone access is required. Please allow and try again.'); return; }
+  }
+  gameLvl = 1;
+  gameSentIdx = 0; gameCorrect = 0; streakResults = [];
+  show('s-game');
+  document.getElementById('g-day-badge').textContent = `DAY ${todayData.dayNumber}`;
+  doCountdown(() => loadGameSentence());
+}
+
+function loadGameSentence() {
+  const lvSentences = todayData.sentences[gameLvl];
+  // Skip already-done sentences
+  while (gameSentIdx < lvSentences.length && lvSentences[gameSentIdx].done) {
+    gameSentIdx++;
+  }
+
+  if (gameSentIdx >= lvSentences.length) {
+    // All sentences in this level done
+    showLevelComplete();
+    return;
+  }
+
+  const sentObj = lvSentences[gameSentIdx];
+  attempts = 0;
+
+  document.getElementById('g-level').textContent = LEVEL_NAMES[gameLvl];
+  document.getElementById('g-count').textContent = `${gameSentIdx + 1} / ${lvSentences.length}`;
+  document.getElementById('g-correct').textContent = `✓ ${gameCorrect}`;
+  document.getElementById('g-prog').style.width = (gameSentIdx / lvSentences.length * 100) + '%';
+  buildStreakPips();
+  renderWords(sentObj.text);
+
+  // Reset result box
+  document.getElementById('result-box').classList.remove('show');
+  document.getElementById('r-bar').style.width = '0%';
+  document.getElementById('r-feedback').textContent = '';
+  document.getElementById('r-transcript').textContent = '';
+  document.getElementById('r-badge').innerHTML = '';
+  document.getElementById('r-score').textContent = '--';
+  document.getElementById('r-attempts').innerHTML = '';
+  document.getElementById('waveform').style.display = 'none';
+  document.getElementById('spin-box').style.display = 'none';
+
+  setBtn('btn-replay', true); setBtn('btn-mic', true); setBtn('btn-next', true);
+  document.getElementById('btn-mic').classList.remove('recording');
+  document.getElementById('btn-mic').textContent = '🎤';
+
+  setStatus('SPEAKING', 'tts');
+  state = ST.TTS;
+  playTTS(sentObj.text, LEVEL_TTS_RATE[gameLvl]);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LEVEL TRANSITIONS
+// ═══════════════════════════════════════════════════════════════
+function showLevelComplete() {
+  const icons = ['🎉','⭐','🌟','🔥','🏆'];
+  document.getElementById('lc-icon').textContent = icons[gameLvl-1] || '🏆';
+  document.getElementById('lc-title').textContent = gameLvl === 5 ? 'ALL LEVELS DONE!' : 'LEVEL COMPLETE!';
+  document.getElementById('lc-sub').textContent = `${gameCorrect} sentences passed!`;
+  document.getElementById('lc-stats').textContent = `Level ${gameLvl} — ${gameCorrect}/${todayData.sentences[gameLvl].length} passed`;
+  document.getElementById('btn-next-lv').textContent = gameLvl >= 5 ? '🌟 FINISH DAY' : `NEXT: LEVEL ${gameLvl+1} →`;
+  show('s-lvl-ok');
+  spawnConfetti('confetti-zone');
+}
+
+function goNextLevel() {
+  if (gameLvl >= 5) {
+    showDayDone();
+    return;
+  }
+  gameLvl++;
+  gameSentIdx = 0; gameCorrect = 0; streakResults = [];
+  show('s-game');
+  doCountdown(() => loadGameSentence());
+}
+
+function showLevelFail() {
+  document.getElementById('fail-stats').textContent =
+    `You got ${gameCorrect} / ${todayData.sentences[gameLvl].length} — need ${REQUIRED_CORRECT} to pass`;
+  show('s-lvl-fail');
+}
+
+function retryLevel() {
+  // Reset done flags for this level so we can replay undone ones
+  gameSentIdx = 0; gameCorrect = 0; streakResults = [];
+  show('s-game');
+  doCountdown(() => loadGameSentence());
+}
+
+function showDayDone() {
+  const total = Object.values(todayData.sentences).flat();
+  const done = total.filter(s => s.done).length;
+  document.getElementById('dd-sub').textContent = `DAY ${todayData.dayNumber} COMPLETE!`;
+  document.getElementById('dd-stats').textContent =
+    `${done} sentences practiced today.\nCome back tomorrow for more!`;
+  show('s-day-done');
+  spawnConfetti('dd-confetti');
+}
+
+function goToLobby() {
+  loadLobby();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NEXT SENTENCE
+// ═══════════════════════════════════════════════════════════════
+function nextSentence() {
+  const passed = document.querySelector('.badge-pass') !== null;
+  streakResults.push(passed);
+  buildStreakPips();
+  gameSentIdx++;
+
+  const lvSents = todayData.sentences[gameLvl];
+  // Count remaining non-done
+  const remaining = lvSents.slice(gameSentIdx).filter(s => !s.done).length;
+
+  if (gameSentIdx >= lvSents.length || remaining === 0) {
+    if (gameCorrect >= REQUIRED_CORRECT) showLevelComplete();
+    else showLevelFail();
+  } else {
+    loadGameSentence();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TTS
+// ═══════════════════════════════════════════════════════════════
+function doUnlockTTS() {
+  if (ttsUnlocked) return;
+  const utt = new SpeechSynthesisUtterance('\u00A0');
+  utt.volume = 0;
+  utt.onend = () => { ttsUnlocked = true; if (pendingSpeech) { const p=pendingSpeech; pendingSpeech=null; _doSpeak(p.text,p.rate,p.onWord,p.onEnd); }};
+  utt.onerror = () => { ttsUnlocked = true; };
+  speechSynthesis.speak(utt);
+}
+
+function playTTS(text, rate) {
+  speechSynthesis.cancel();
+  const sentence = text;
+  if (!ttsUnlocked) {
+    pendingSpeech = { text, rate, onWord: ci => highlightWord(ci, sentence), onEnd: onTTSDone };
+  } else {
+    _doSpeak(text, rate, ci => highlightWord(ci, sentence), onTTSDone);
+  }
+}
+
+function _doSpeak(text, rate, onWord, onEnd) {
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = rate; utt.lang = 'en-US';
+  const voices = speechSynthesis.getVoices();
+  const voice = voices.find(v => v.lang==='en-US' && /google|natural|premium/i.test(v.name)) ||
+    voices.find(v => v.lang==='en-US') || voices.find(v => v.lang.startsWith('en')) || null;
+  if (voice) utt.voice = voice;
+  utt.onboundary = e => { if (e.name==='word' && onWord) onWord(e.charIndex); };
+  utt.onend = () => { clearHighlights(); if (onEnd) onEnd(); };
+  utt.onerror = () => { clearHighlights(); if (onEnd) onEnd(); };
+  speechSynthesis.speak(utt);
+}
+
+function onTTSDone() {
+  if (state !== ST.TTS) return;
+  state = ST.WAIT;
+  setStatus('YOUR TURN — TAP THE MIC', '');
+  setBtn('btn-replay', false); setBtn('btn-mic', false);
+}
+
+function replayTTS() {
+  if (state === ST.REC) return;
+  const sentObj = todayData.sentences[gameLvl][gameSentIdx];
+  state = ST.TTS;
+  setStatus('SPEAKING', 'tts');
+  clearHighlights();
+  document.getElementById('result-box').classList.remove('show');
+  setBtn('btn-mic', true); setBtn('btn-next', true);
+  playTTS(sentObj.text, LEVEL_TTS_RATE[gameLvl]);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SPEECH RECOGNITION — Hybrid (Web Speech API + MediaRecorder)
+// Desktop Chrome/Android → Web Speech API (instant, no extra cost)
+// iOS / Opera / other   → MediaRecorder + Whisper API (works everywhere)
+// ═══════════════════════════════════════════════════════════════
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const useWebSpeech = !!SR && !isIOS;
+let _recResCB=null, _recErrCB=null, _recEndCB=null;
+let mediaRecorder=null, audioChunks=[], mrTimeout=null;
+
+if (useWebSpeech) {
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 5;
+  recognition.continuous = false;
+}
+
+function handleMic() {
+  if (state === ST.REC) stopRec();
+  else if (state === ST.WAIT || state === ST.RESULT) startRec();
+}
+
+async function startRec() {
+  if (!micStream || !micStream.active) {
+    try { micStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch { alert('Microphone access required. Please allow mic in your browser settings.'); return; }
+  }
+  if (useWebSpeech) startWebSpeechRec();
+  else startMediaRecorderRec();
+}
+
+// ── Web Speech path (Desktop Chrome, Android Chrome) ──────────
+function startWebSpeechRec() {
+  recDone = false;
+  let finalTranscripts = [], gotFinal = false, recTimeout = null;
+
+  if (_recResCB) recognition.removeEventListener('result', _recResCB);
+  if (_recErrCB) recognition.removeEventListener('error', _recErrCB);
+  if (_recEndCB) recognition.removeEventListener('end', _recEndCB);
+
+  _recResCB = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        gotFinal = true;
+        for (let j = 0; j < e.results[i].length; j++) finalTranscripts.push(e.results[i][j].transcript);
+      } else interim += e.results[i][0].transcript;
+    }
+    if (interim) highlightSpokenWords(interim);
+    if (gotFinal && !recDone) { recDone=true; clearTimeout(recTimeout); cleanupRecUI(); evaluate(finalTranscripts); }
+  };
+  _recErrCB = e => {
+    if (recDone) return; recDone=true;
+    clearTimeout(recTimeout); cleanupRecUI();
+    if (e.error==='no-speech') { setStatus('NO SPEECH — TRY AGAIN',''); setBtn('btn-mic',false); setBtn('btn-replay',false); state=ST.WAIT; }
+    else if (e.error==='not-allowed') { setStatus('MIC DENIED',''); alert('Please allow microphone access.'); }
+    else { setStatus('ERROR — TRY AGAIN',''); setBtn('btn-mic',false); setBtn('btn-replay',false); state=ST.WAIT; }
+  };
+  _recEndCB = () => { if (!recDone) { recDone=true; clearTimeout(recTimeout); cleanupRecUI(); state=ST.WAIT; setStatus('YOUR TURN',''); setBtn('btn-mic',false); setBtn('btn-replay',false); }};
+
+  recognition.addEventListener('result', _recResCB);
+  recognition.addEventListener('error', _recErrCB);
+  recognition.addEventListener('end', _recEndCB);
+
+  startRealWave();
+  try { recognition.start(); } catch(e) { console.error(e); return; }
+
+  state = ST.REC;
+  setStatus('LISTENING...', 'rec');
+  document.getElementById('btn-mic').classList.add('recording');
+  document.getElementById('btn-mic').textContent = '⏹';
+  setBtn('btn-replay', true); setBtn('btn-next', true);
+  document.getElementById('waveform').style.display = 'flex';
+  const timeout = gameLvl >= 4 ? 15000 : 12000;
+  recTimeout = setTimeout(() => { if (state===ST.REC && recognition) recognition.stop(); }, timeout);
+}
+
+// ── MediaRecorder path (iOS Safari, Opera, Firefox) ───────────
+async function startMediaRecorderRec() {
+  recDone = false;
+  audioChunks = [];
+
+  const mimeType =
+    MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' :
+    MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
+    MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+
+  try {
+    mediaRecorder = new MediaRecorder(micStream, mimeType ? { mimeType } : {});
+  } catch(e) {
+    alert('Recording not supported on this browser. Please try Chrome on Android.');
+    return;
+  }
+
+  mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
+
+  mediaRecorder.onstop = async () => {
+    if (recDone) return; recDone = true;
+    clearTimeout(mrTimeout);
+    cleanupRecUI();
+    const blob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
+    await transcribeAndEvaluate(blob, mimeType || 'audio/webm');
+  };
+
+  mediaRecorder.start(250); // collect data every 250ms
+  await startRealWave();
+
+  state = ST.REC;
+  setStatus('LISTENING... TAP ⏹ TO STOP', 'rec');
+  document.getElementById('btn-mic').classList.add('recording');
+  document.getElementById('btn-mic').textContent = '⏹';
+  setBtn('btn-replay', true); setBtn('btn-next', true);
+  document.getElementById('waveform').style.display = 'flex';
+
+  const timeout = gameLvl >= 4 ? 15000 : 12000;
+  mrTimeout = setTimeout(() => stopRec(), timeout);
+}
+
+async function transcribeAndEvaluate(blob, mimeType) {
+  setStatus('TRANSCRIBING...', 'eval');
+  document.getElementById('spin-box').style.display = 'flex';
+  document.getElementById('result-box').classList.remove('show');
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    const res = await apiPost('/api/transcribe', { audioBase64: base64, mimeType });
+    const transcript = res.transcript || '';
+    if (!transcript) {
+      showTip('💡 No speech detected — speak louder and tap ⏹ when done');
+      document.getElementById('spin-box').style.display = 'none';
+      setStatus('NO SPEECH — TRY AGAIN', '');
+      setBtn('btn-mic', false); setBtn('btn-replay', false);
+      state = ST.WAIT; return;
+    }
+    evaluate([transcript]);
+  } catch(e) {
+    console.warn('Transcription failed:', e.message);
+    document.getElementById('spin-box').style.display = 'none';
+    setStatus('TRANSCRIPTION FAILED — TRY AGAIN', '');
+    showTip('⚠️ Make sure OPENAI_API_KEY is set in Railway variables');
+    setBtn('btn-mic', false); setBtn('btn-replay', false);
+    state = ST.WAIT;
+  }
+}
+
+function stopRec() {
+  clearTimeout(mrTimeout);
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  if (recognition) try { recognition.stop(); } catch(e) {}
+}
+
+function cleanupRecUI() {
+  document.getElementById('btn-mic').classList.remove('recording');
+  document.getElementById('btn-mic').textContent = '🎤';
+  document.getElementById('waveform').style.display = 'none';
+  stopRealWave();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WAVEFORM
+// ═══════════════════════════════════════════════════════════════
+async function startRealWave() {
+  try {
+    const stream = micStream || await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (!micStream) micStream = stream;
+    if (!waveCtx || waveCtx.state==='closed') waveCtx = new AudioContext();
+    if (waveCtx.state==='suspended') await waveCtx.resume();
+    waveSource = waveCtx.createMediaStreamSource(stream);
+    waveAnalyser = waveCtx.createAnalyser(); waveAnalyser.fftSize = 64;
+    waveSource.connect(waveAnalyser);
+    const data = new Uint8Array(waveAnalyser.frequencyBinCount);
+    const bars = Array.from({length:15},(_,i)=>document.getElementById('wb'+i));
+    function draw() {
+      if (!waveAnalyser) return;
+      waveAnalyser.getByteFrequencyData(data);
+      bars.forEach((b,i) => { if(!b)return; const v=data[i*2]||0; b.style.height=Math.max(5,v/255*44)+'px'; });
+      waveInt = requestAnimationFrame(draw);
+    }
+    draw();
+  } catch {
+    const bars = Array.from({length:15},(_,i)=>document.getElementById('wb'+i));
+    waveInt = setInterval(() => { bars.forEach(b=>{if(b)b.style.height=(4+Math.random()*36)+'px';}); }, 75);
+  }
+}
+function stopRealWave() {
+  if (waveInt) { cancelAnimationFrame(waveInt); clearInterval(waveInt); waveInt=null; }
+  if (waveSource) { waveSource.disconnect(); waveSource=null; }
+  waveAnalyser = null;
+  for (let i=0;i<15;i++){const b=document.getElementById('wb'+i);if(b)b.style.height='5px';}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EVALUATION
+// ═══════════════════════════════════════════════════════════════
+function norm(s) { return s.toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).filter(Boolean); }
+
+async function evaluate(transcripts) {
+  state = ST.EVAL;
+  attempts++;
+  setStatus('ANALYZING...', 'eval');
+  setBtn('btn-mic',true); setBtn('btn-replay',true); setBtn('btn-next',true);
+  document.getElementById('spin-box').style.display = 'flex';
+  document.getElementById('result-box').classList.remove('show');
+
+  const sentObj = todayData.sentences[gameLvl][gameSentIdx];
+  const spoken = transcripts[0] || '';
+  let result;
+
+  try {
+    result = await apiPost('/api/eval', { target: sentObj.text, transcripts });
+  } catch {
+    result = localEval(sentObj.text, transcripts);
+  }
+
+  // Save result to backend
+  if (result.passed) {
+    try {
+      await apiPost('/api/user/submit', {
+        level: gameLvl,
+        sentenceIdx: sentObj.idx,
+        dayNumber: todayData.dayNumber,
+        score: result.score,
+        passed: result.passed,
+        attempts
+      });
+      // Mark as done in local state
+      todayData.sentences[gameLvl][gameSentIdx].done = true;
+    } catch (e) { console.warn('Submit failed:', e.message); }
+  }
+
+  showResult(result, spoken);
+}
+
+function localEval(target, transcripts) {
+  const tw = norm(target);
+  let bestScore = 0, bestSpoken = [];
+  for (const t of transcripts) {
+    const sw = norm(t);
+    let matched = 0;
+    for (const word of tw) {
+      if (sw.includes(word)) { matched++; continue; }
+      if (sw.some(s => levenshtein(s,word)<=2)) matched += 0.7;
+    }
+    const score = tw.length ? matched/tw.length : 0;
+    if (score>bestScore) { bestScore=score; bestSpoken=sw; }
+  }
+  const passed = bestScore >= 0.65;
+  const wrongWords = tw.filter(w => !bestSpoken.includes(w) && !bestSpoken.some(s=>levenshtein(s,w)<=2));
+  const pos = ['Great job! 🔥','Well done! ⭐','Excellent! 🌟','Nice work! 💪','Keep it up! 🚀'];
+  const neg = ['Almost there! 💪','Keep trying! 🎯','Good effort! ✨','Try again! 🔄','So close! 🤏'];
+  const fb = (passed?pos:neg)[Math.floor(Math.random()*(passed?pos.length:neg.length))];
+  return { score: bestScore, passed, feedback: fb, wrongWords };
+}
+
+function levenshtein(a,b){
+  const m=a.length,n=b.length;
+  const d=Array.from({length:m+1},(_,i)=>[i]);
+  for(let j=1;j<=n;j++)d[0][j]=j;
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++)
+    d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return d[m][n];
+}
+
+function showResult(result, spoken) {
+  state = ST.RESULT;
+  document.getElementById('spin-box').style.display = 'none';
+  if (result.passed) gameCorrect++;
+  document.getElementById('g-correct').textContent = `✓ ${gameCorrect}`;
+
+  const pct = Math.round(result.score * 100);
+  document.getElementById('r-score').textContent = pct + '%';
+  const bar = document.getElementById('r-bar');
+  bar.className = 'score-fill '+(pct>=80?'high':pct>=50?'mid':'low');
+  setTimeout(() => { bar.style.width = pct+'%'; }, 50);
+  document.getElementById('r-badge').innerHTML = result.passed
+    ? '<div class="badge badge-pass">✓ PASSED</div>'
+    : '<div class="badge badge-fail">✗ NOT YET</div>';
+  document.getElementById('r-feedback').textContent = result.feedback;
+  document.getElementById('r-transcript').textContent = spoken ? `You said: "${spoken}"` : '';
+  document.getElementById('r-attempts').innerHTML = attempts>1 ? `Attempt <span>${attempts}</span>` : '';
+  colorWords(result.wrongWords);
+  document.getElementById('result-box').classList.add('show');
+
+  if (!result.passed) {
+    document.querySelector('.card').classList.add('shake');
+    setTimeout(() => document.querySelector('.card').classList.remove('shake'), 500);
+  }
+  setStatus(result.passed ? 'PASSED! 🎉' : 'TRY AGAIN', '');
+  setBtn('btn-replay', false); setBtn('btn-mic', false); setBtn('btn-next', false);
+  if (!result.passed && attempts >= 2) showTip();
+}
+
+function colorWords(wrongWords) {
+  const sentObj = todayData.sentences[gameLvl][gameSentIdx];
+  const words = sentObj.text.split(' ');
+  const wrongSet = new Set((wrongWords||[]).map(w=>w.toLowerCase()));
+  words.forEach((w,i) => {
+    const el = document.getElementById('wd'+i);
+    if (!el) return;
+    el.classList.remove('lit','done');
+    const clean = w.toLowerCase().replace(/[^a-z]/g,'');
+    el.classList.add(wrongSet.has(clean) ? 'w-wrong' : 'w-correct');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WORD HIGHLIGHT HELPERS
+// ═══════════════════════════════════════════════════════════════
+function renderWords(sentence) {
+  document.getElementById('sentence-wrap').innerHTML =
+    sentence.split(' ').map((w,i)=>`<span class="w" id="wd${i}">${w}</span>`).join(' ');
+}
+function highlightWord(charIndex, sentence) {
+  const words = sentence.split(' ');
+  let pos = 0;
+  for (let i=0; i<words.length; i++) {
+    const end = pos+words[i].length;
+    if (charIndex>=pos && charIndex<=end) {
+      words.forEach((_,j)=>{
+        const el=document.getElementById('wd'+j);
+        if(!el)return;
+        el.classList.remove('lit','done');
+        if(j<i) el.classList.add('done');
+        else if(j===i) el.classList.add('lit');
+      }); break;
+    }
+    pos += words[i].length+1;
+  }
+}
+function clearHighlights() { document.querySelectorAll('.sentence-wrap .w').forEach(el=>el.classList.remove('lit','done','w-correct','w-wrong')); }
+function highlightSpokenWords(interim) {
+  const sentObj = todayData.sentences[gameLvl][gameSentIdx];
+  const tw = sentObj.text.split(' ');
+  const spoken = norm(interim);
+  tw.forEach((w,i)=>{
+    const el=document.getElementById('wd'+i);
+    if(!el)return;
+    if(spoken.includes(norm(w)[0])) el.classList.add('done');
+  });
+}
+function buildStreakPips() {
+  const total = todayData.sentences[gameLvl].length;
+  let html = '';
+  for (let i=0; i<total; i++) {
+    let cls = 'pending';
+    if (i < streakResults.length) cls = streakResults[i]?'hit':'miss';
+    html += `<div class="streak-pip ${cls}"></div>`;
+  }
+  document.getElementById('streak-bar').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════
+function setStatus(text, dotCls) {
+  document.getElementById('s-text').textContent = text;
+  const d = document.getElementById('s-dot');
+  d.className = 'status-dot';
+  if (dotCls) d.classList.add(dotCls);
+}
+function setBtn(id, disabled) { document.getElementById(id).disabled = disabled; }
+
+const tips_list = ['💡 Speak slowly and clearly','💡 Move closer to your mic','💡 Match the rhythm you heard','💡 Pronounce each word clearly','💡 Reduce background noise'];
+function showTip(text) {
+  const el = document.getElementById('tip-toast');
+  el.textContent = text || tips_list[Math.floor(Math.random()*tips_list.length)];
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+function doCountdown(cb) {
+  const overlay = document.getElementById('countdown-overlay');
+  const num = document.getElementById('countdown-num');
+  overlay.classList.add('show');
+  let c = 3; num.textContent = c;
+  const iv = setInterval(() => {
+    c--;
+    if (c<=0) { clearInterval(iv); overlay.classList.remove('show'); cb(); }
+    else { num.textContent=c; num.style.animation='none'; void num.offsetWidth; num.style.animation='count-pop .5s ease'; }
+  }, 700);
+}
+
+function spawnConfetti(zoneId) {
+  const zone = document.getElementById(zoneId) || document.body;
+  const colors = ['#ff2d78','#00e5ff','#ffd60a','#39ff14','#b44aff'];
+  for (let i=0; i<30; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.left = Math.random()*100+'%'; el.style.top = Math.random()*60+'%';
+    el.style.background = colors[Math.floor(Math.random()*colors.length)];
+    el.style.animationDelay = Math.random()*.5+'s';
+    el.style.animationDuration = (1+Math.random())+'s';
+    zone.appendChild(el);
+    setTimeout(() => el.remove(), 2500);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// API HELPERS
+// ═══════════════════════════════════════════════════════════════
+async function api(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? {'Authorization':'Bearer '+token} : {}) },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) { const err = new Error(data.error || 'Request failed'); err.status=res.status; throw err; }
+  return data;
+}
+async function apiGet(url) {
+  const res = await fetch(url, { headers: { 'Authorization': 'Bearer '+token } });
+  const data = await res.json();
+  if (!res.ok) { const err = new Error(data.error || 'Request failed'); err.status=res.status; throw err; }
+  return data;
+}
+async function apiPost(url, body) { return api(url, body); }
+</script>
+</body>
+</html>
