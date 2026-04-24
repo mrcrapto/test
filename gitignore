@@ -1,0 +1,4 @@
+node_modules/
+karaoke.db
+.env
+*.log
