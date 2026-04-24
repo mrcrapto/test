@@ -836,7 +836,6 @@ function nextSentence() {
 let ttsSafetyTimer = null;
 
 function doUnlockTTS() {
-  // On mobile speechSynthesis is unreliable — just mark unlocked immediately
   ttsUnlocked = true;
   if (pendingSpeech) {
     const p = pendingSpeech; pendingSpeech = null;
@@ -844,15 +843,32 @@ function doUnlockTTS() {
   }
 }
 
+// Wait for voices to be loaded (Chrome loads them async)
+function waitForVoices(maxWait = 1500) {
+  return new Promise(resolve => {
+    const v = speechSynthesis.getVoices();
+    if (v && v.length) return resolve(v);
+    let resolved = false;
+    const done = () => { if (!resolved) { resolved = true; resolve(speechSynthesis.getVoices() || []); } };
+    speechSynthesis.onvoiceschanged = done;
+    setTimeout(done, maxWait);
+  });
+}
+
 function playTTS(text, rate) {
-  speechSynthesis.cancel();
+  try { speechSynthesis.cancel(); } catch(e) {}
   clearTimeout(ttsSafetyTimer);
   const sentence = text;
 
-  // Safety net: if TTS never fires onend (very common on iOS/mobile),
-  // force-unlock buttons after estimated speech duration
-  const estimatedMs = Math.max(4000, text.split(' ').length * 480);
-  ttsSafetyTimer = setTimeout(() => { clearHighlights(); onTTSDone(); }, estimatedMs + 2500);
+  // Safety net: if TTS never fires onend (browser glitches, muted, etc.)
+  // force-unlock the mic after estimated speech duration
+  const wordCount = text.split(' ').length;
+  const estimatedMs = Math.max(3500, (wordCount / (rate || 1)) * 480);
+  ttsSafetyTimer = setTimeout(() => {
+    console.log('TTS safety timeout fired');
+    clearHighlights();
+    onTTSDone();
+  }, estimatedMs + 2000);
 
   if (!ttsUnlocked) {
     pendingSpeech = { text, rate, onWord: ci => highlightWord(ci, sentence), onEnd: onTTSDone };
@@ -861,17 +877,31 @@ function playTTS(text, rate) {
   }
 }
 
-function _doSpeak(text, rate, onWord, onEnd) {
+async function _doSpeak(text, rate, onWord, onEnd) {
   const utt = new SpeechSynthesisUtterance(text);
-  utt.rate = rate; utt.lang = 'en-US';
-  const voices = speechSynthesis.getVoices();
-  const voice = voices.find(v => v.lang==='en-US' && /google|natural|premium/i.test(v.name)) ||
-    voices.find(v => v.lang==='en-US') || voices.find(v => v.lang.startsWith('en')) || null;
+  utt.rate = rate || 1; utt.lang = 'en-US'; utt.pitch = 1.05; utt.volume = 1;
+
+  // Wait for voices to load before picking one
+  const voices = await waitForVoices();
+  const voice =
+    voices.find(v => v.lang === 'en-US' && /female|samantha|zira|karen|victoria|allison/i.test(v.name)) ||
+    voices.find(v => v.lang === 'en-US' && /google|natural|premium/i.test(v.name)) ||
+    voices.find(v => v.lang === 'en-US') ||
+    voices.find(v => v.lang && v.lang.startsWith('en')) ||
+    null;
   if (voice) utt.voice = voice;
-  utt.onboundary = e => { if (e.name==='word' && onWord) onWord(e.charIndex); };
+
+  utt.onboundary = e => { if (e.name === 'word' && onWord) onWord(e.charIndex); };
   utt.onend = () => { clearTimeout(ttsSafetyTimer); clearHighlights(); if (onEnd) onEnd(); };
   utt.onerror = () => { clearTimeout(ttsSafetyTimer); clearHighlights(); if (onEnd) onEnd(); };
-  speechSynthesis.speak(utt);
+
+  try {
+    speechSynthesis.speak(utt);
+  } catch(e) {
+    console.error('speechSynthesis.speak failed:', e);
+    clearTimeout(ttsSafetyTimer);
+    if (onEnd) onEnd();
+  }
 }
 
 function onTTSDone() {
@@ -1019,6 +1049,11 @@ async function transcribeAndEvaluate(blob, mimeType) {
   document.getElementById('result-box').classList.remove('show');
 
   try {
+    // Check blob size — if too small, likely no audio captured
+    if (blob.size < 1000) {
+      throw new Error(`Audio too short (${blob.size} bytes) — record longer`);
+    }
+
     const base64 = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result.split(',')[1]);
@@ -1026,8 +1061,11 @@ async function transcribeAndEvaluate(blob, mimeType) {
       reader.readAsDataURL(blob);
     });
 
+    console.log('Sending audio:', blob.size, 'bytes,', mimeType);
     const res = await apiPost('/api/transcribe', { audioBase64: base64, mimeType });
     const transcript = res.transcript || '';
+    console.log('Transcription result:', res);
+
     if (!transcript) {
       showTip('💡 No speech detected — speak louder and tap ⏹ when done');
       document.getElementById('spin-box').style.display = 'none';
@@ -1037,10 +1075,11 @@ async function transcribeAndEvaluate(blob, mimeType) {
     }
     evaluate([transcript]);
   } catch(e) {
-    console.warn('Transcription failed:', e.message);
+    console.error('Transcription failed:', e);
     document.getElementById('spin-box').style.display = 'none';
-    setStatus('TRANSCRIPTION FAILED — TRY AGAIN', '');
-    showTip('⚠️ Make sure DEEPGRAM_API_KEY is set in Railway variables');
+    const msg = (e.message || 'Unknown error').slice(0, 120);
+    setStatus('TRANSCRIPTION FAILED', '');
+    showTip('⚠️ ' + msg);
     setBtn('btn-mic', false); setBtn('btn-replay', false);
     state = ST.WAIT;
   }
